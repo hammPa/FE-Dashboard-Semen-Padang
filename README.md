@@ -1,16 +1,26 @@
-# React + Vite
+# 📊 Dashboard Industri - Frontend Prototype (Minggu 1)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Proyek ini adalah _prototype_ antarmuka (UI) untuk sistem pelaporan terpusat Divisi IP, KS, dan P. Dibangun menggunakan React, Vite, dan Tailwind CSS.
 
-Currently, two official plugins are available:
+## Cara Menjalankan Proyek Lokal
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+1. Pastikan Node.js sudah terinstal.
+2. Buka terminal di folder proyek ini.
+3. Jalankan `npm install` untuk mengunduh dependensi.
+4. Jalankan `npm run dev` untuk menyalakan server lokal.
+5. Buka tautan `http://localhost:5173` di _browser_.
 
-## React Compiler
+## Kontrak Data (Mock API untuk Tim Backend)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Agar grafik di Frontend bisa merender data dengan benar, mohon tim Backend (BE) menyediakan _endpoint_ API dengan format JSON persis seperti di bawah ini:
 
-## Expanding the ESLint configuration
+### 1. Endpoint Summary (Ringkasan Total)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```json
+{
+  "ip": 145,
+  "ks": 89,
+  "p": 210,
+  "lastUpdate": "2026-06-04 10:15 WIB"
+}
+```
