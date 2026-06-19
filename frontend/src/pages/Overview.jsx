@@ -1,4 +1,3 @@
-// src/pages/Overview.jsx
 import { useState, useEffect } from "react";
 import api from "../utils/api"; // Memanggil konfigurasi Axios kita
 import SummaryCards from "../components/SummaryCards";
@@ -6,27 +5,38 @@ import TrendChart from "../components/TrendChart";
 import SourceChart from "../components/SourceChart";
 import LogTable from "../components/LogTable";
 import Skeleton from "../components/Skeleton";
+import { summaryData, trendData, sourceData, recentLogs } from "../data/mockdata";
 
 export default function Overview() {
   const [isLoading, setIsLoading] = useState(true);
   const [serverData, setServerData] = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     // Fungsi untuk menarik data dari Backend
-    const fetchDashboardData = async () => {
+    // fetchDashboardData
+    (async () => {
       try {
         // Axios otomatis menembak ke http://localhost:3000/api/dashboard
         const response = await api.get("/dashboard");
         setServerData(response.data);
-        setIsLoading(false);
-      } catch (error) {
-        console.error("Gagal mengambil data dari server:", error);
-        setIsLoading(false); // Tetap matikan loading agar tidak stuck
       }
-    };
-
-    fetchDashboardData();
-  }, []);
+      catch (error) {
+        console.error("Gagal mengambil data dari server:", error);
+        setError(error.message);
+        // FIX: Gunakan mock data sebagai fallback
+        setServerData({
+          summary: summaryData,
+          trendData,
+          sourceData,
+          recentLogs
+        });
+      }
+      finally {
+        setIsLoading(false);
+      }
+    })();
+  }, []); // sekali
 
   if (isLoading || !serverData) {
     return (

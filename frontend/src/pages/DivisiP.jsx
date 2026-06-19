@@ -66,10 +66,9 @@ export default function DivisiP() {
 
   // Tarik data mentahnya saja
   const { dataLogs } = data;
-
-  // --- MESIN ANALITIK FRONTEND (DIJAMIN 100% SINKRON DENGAN TABEL) ---
   const totalWorkOrder = dataLogs.length;
 
+  
   // Kita pastikan menghapus spasi ekstra (trim) agar kebal dari salah ketik spasi di Firebase
   const siapEksekusi = dataLogs.filter(
     (log) => log.status.trim() === "Ready to Execute",
@@ -268,19 +267,19 @@ export default function DivisiP() {
             </thead>
             <tbody>
               {dataLogs.map((log, index) => (
-                <tr key={index} className="border-b hover:bg-gray-50">
+                <tr key={log.id || `log-${index}`} className="border-b hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">
                     {log.id}
                   </td>
                   <td className="px-4 py-3 font-bold text-blue-600">
                     {log.area}
                   </td>
-                  <td className="px-4 py-3">{log.kategori}</td>
+                  <td className="px-4 py-3">{log.kategori || "Umum"}</td>
                   <td className="px-4 py-3">
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium ${log.status_sparepart === "Tersedia" ? "bg-green-100 text-green-700" : log.status_sparepart === "Indent" ? "bg-orange-100 text-orange-700" : log.status_sparepart === "Kosong" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"}`}
                     >
-                      {log.status_sparepart}
+                      {log.status_sparepart || "Belum Dicek"}
                     </span>
                   </td>
                   <td className="px-4 py-3 font-semibold">{log.status}</td>

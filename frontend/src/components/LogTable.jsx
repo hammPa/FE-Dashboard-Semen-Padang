@@ -68,7 +68,7 @@ export default function LogTable({ data }) {
           <tbody>
             {paginatedLogs.length > 0 ? (
               paginatedLogs.map((log, index) => (
-                <tr key={index} className="border-b hover:bg-gray-50">
+                <tr key={log.id || log._id || `log-${index}`} className="border-b hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">
                     {log.id}
                   </td>

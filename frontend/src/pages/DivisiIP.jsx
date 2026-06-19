@@ -33,6 +33,8 @@ export default function DivisiIP() {
     const fetchIPData = async () => {
       try {
         const response = await api.get("/divisi-ip");
+        console.log({response});
+        
         setData(response.data);
         setIsLoading(false);
       } catch (error) {

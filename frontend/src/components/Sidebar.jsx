@@ -21,13 +21,13 @@ export default function Sidebar() {
           <LayoutDashboard size={20} /> Overview
         </NavLink>
         <NavLink to="/divisi-ip" className={navClass}>
-          <BarChart3 size={20} /> Divisi inspeksi pemeliharaan
+          <BarChart3 size={20} /> Divisi Inspeksi Pemeliharaan (Google Sheets)
         </NavLink>
         <NavLink to="/divisi-ks" className={navClass}>
-          <BarChart3 size={20} /> Divisi kontrak servis
+          <BarChart3 size={20} /> Divisi Kontrak Servis (One Drive)
         </NavLink>
         <NavLink to="/divisi-p" className={navClass}>
-          <BarChart3 size={20} /> Divisi Planner
+          <BarChart3 size={20} /> Divisi Planner (Firebase)
         </NavLink>
       </nav>
       <div className="p-4 border-t border-slate-700">
