@@ -30,3 +30,4 @@ frontend/node_modules
 backend/firebase-key.json
 backend/node_modules/
 backend/.env
+backend/download/

@@ -6,10 +6,12 @@ const { Server } = require("socket.io");
 
 const divisiIpRouter = require("./routes/divisiIp");
 const divisiPRouter = require("./routes/divisiP");
-const divisiOnedriveRouter = require("./routes/divisiKs");
-const { watchFirebaseChanges } = require("./realtime/firebaseWatcher");
-const { startSheetsPolling } = require("./realtime/sheetsPoller");
-const { startOnedrivePolling } = require("./realtime/onedrivePoller");
+const divisiKSRouter = require("./routes/divisiKs");
+const dashboardRouter = require("./routes/dashboard");
+const geminiRouter = require("./routes/gemini");
+// const { watchFirebaseChanges } = require("./realtime/firebaseWatcher");
+// const { startSheetsPolling } = require("./realtime/sheetsPoller");
+// const { startOnedrivePolling } = require("./realtime/onedrivePoller");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -35,49 +37,15 @@ app.get("/", (_, res) => {
 
 app.use("/api/divisi-ip", divisiIpRouter);
 app.use("/api/divisi-p", divisiPRouter);
-app.use("/api/divisi-onedrive", divisiOnedriveRouter);
+app.use("/api/divisi-ks", divisiKSRouter);
+app.use("/api/dashboard", dashboardRouter);
+app.use("/api/ai", geminiRouter);
 
-app.get("/api/dashboard", async (requestAnimationFrame, res) => {
-  try {
-    const { fetchSheetLogs, hitungAnalitikIP } = require("./services/sheetsService");
-    const { fetchPlannerLogs, hitungAnalitikPlanner } = require("./services/firestoreService");
-    const { fetchOnedriveLogs, hitungAnalitikOnedrive } = require("./services/onedriveService");
-
-    const [ipLogs, pLogs, ksLogs] = await Promise.all([
-      fetchSheetLogs().catch(() => []),
-      fetchPlannerLogs().catch(() => []),
-      fetchOnedriveLogs().catch(() => [])
-    ]);
-
-    const { summaryData, trendData, sourceData, recentLogs } = require("../frontend/src/data/mockdata");
-
-    res.json({
-      summary: {
-        ip: hitungAnalitikIP(ipLogs).totalInspeksi || summaryData.ip,
-        ks: hitungAnalitikOnedrive(ksLogs).totalData || summaryData.ks,
-        p: hitungAnalitikPlanner(pLogs).totalWorkOrder || summaryData.p,
-        lastUpdate: summaryData.lastUpdate
-      },
-      trendData,
-      sourceData,
-      recentLogs
-    });
-  } catch (error) {
-    console.error("Dashboard error:", error);
-    const { summaryData, trendData, sourceData, recentLogs } = require("../frontend/src/data/mockdata");
-    res.json({
-      summary: summaryData,
-      trendData,
-      sourceData,
-      recentLogs
-    });
-  }
-})
 
 // --- RADAR REAL-TIME ---
-watchFirebaseChanges(io); // Firestore: Divisi P
-startSheetsPolling(io); // Google Sheets (polling): Divisi IP
-startOnedrivePolling(io); // OneDrive (polling): Divisi Ks
+// watchFirebaseChanges(io); // Firestore: Divisi P
+// startSheetsPolling(io); // Google Sheets (polling): Divisi IP
+// startOnedrivePolling(io); // OneDrive (polling): Divisi Ks
 
 server.listen(PORT, () => {
   console.log(

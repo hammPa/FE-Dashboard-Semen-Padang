@@ -1,85 +1,156 @@
 // backend/services/onedriveService.js
-const axios = require("axios");
+
+const { firefox } = require("playwright");
 const XLSX = require("xlsx");
+const fs   = require("fs");
+const path = require("path");
 
-// Link share OneDrive yang sudah di-set "Anyone with the link can view"
-// Ditaruh di .env, contoh: ONEDRIVE_FILE_URL=https://1drv.ms/x/s!Axxxxx...
-const ONEDRIVE_FILE_URL = process.env.ONEDRIVE_FILE_URL || "";
+const SHARE_URL =
+  "https://1drv.ms/x/c/5ac5adde876beb8f/IQCaIpa1ejjfT7b-ys9Vc87ZAeP78_B71swh-73Nec5sEZU";
 
-// Ubah link share OneDrive (1drv.ms / onedrive.live.com) menjadi link download langsung
-function toDirectDownloadUrl(shareUrl) {
-  if (!shareUrl) return shareUrl;
+const SAVE_PATH = path.join(__dirname, "../download/Hasil_Download_Log.xlsx");
 
-  // Format lama: https://onedrive.live.com/...redir?resid=...
-  if (shareUrl.includes("onedrive.live.com")) {
-    return shareUrl.includes("?")
-      ? `${shareUrl}&download=1`
-      : `${shareUrl}?download=1`;
+let _cache        = null;
+let _fetchPromise = null;
+
+// ── Baca file lokal kalau sudah ada ──────────────────────────────────────────
+function readLocalFile() {
+  if (fs.existsSync(SAVE_PATH)) {
+    console.log("📂 File lokal ditemukan, membaca dari disk...");
+    return fs.readFileSync(SAVE_PATH);
   }
-
-  // Format short link: https://1drv.ms/x/s!xxxxxxx
-  if (shareUrl.includes("1drv.ms")) {
-    return shareUrl.includes("?")
-      ? `${shareUrl}&download=1`
-      : `${shareUrl}?download=1`;
-  }
-
-  return shareUrl;
+  return null;
 }
 
-// Download file dari OneDrive lalu ubah jadi array of rows (mentah, belum mapping)
-async function downloadAndParse() {
-  if (!ONEDRIVE_FILE_URL) {
-    throw new Error("ONEDRIVE_FILE_URL belum diatur di .env");
+// ── Download via Playwright (hanya kalau file belum ada) ─────────────────────
+async function downloadFromOnedrive() {
+  const browser = await firefox.launch({ headless: true });
+  const context = await browser.newContext({ acceptDownloads: true });
+  const page    = await context.newPage();
+
+  console.log("🌐 Membuka link sharing OneDrive...");
+  try {
+    await page.goto(SHARE_URL, { waitUntil: "networkidle", timeout: 40000 });
+  } catch {
+    console.log("⚠️ Navigasi awal melewati batas waktu, menganalisis URL saat ini...");
   }
 
-  const directUrl = toDirectDownloadUrl(ONEDRIVE_FILE_URL);
+  let buffer = null;
+  try {
+    console.log("⏳ Menunggu stabilitas URL OneDrive...");
+    await page.waitForURL(/onedrive\.live\.com/, { timeout: 10000 });
 
-  const response = await axios.get(directUrl, {
-    responseType: "arraybuffer",
-    // OneDrive sering melakukan redirect, axios sudah follow secara default
-  });
+    const currentUrl = page.url();
+    console.log("📍 URL Terdeteksi:", currentUrl.substring(0, 80) + "...");
 
-  // XLSX.read bisa baca buffer Excel (.xlsx/.xls) maupun CSV
-  const workbook = XLSX.read(response.data, { type: "buffer" });
-  const firstSheetName = workbook.SheetNames[0];
-  const sheet = workbook.Sheets[firstSheetName];
+    let downloadUrl = currentUrl
+      .replace("Doc.aspx", "download.aspx")
+      .replace("action=default", "action=download");
 
-  // Hasil: array of array, sama seperti format Google Sheets values.get
-  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
-  return rows;
+    if (downloadUrl === currentUrl) {
+      downloadUrl += (downloadUrl.includes("?") ? "&" : "?") + "download=1";
+    }
+
+    console.log("📥 Memicu unduhan via internal stream...");
+    const downloadPromise = page.waitForEvent("download", { timeout: 25000 });
+    await page.goto(downloadUrl).catch(() => {});
+
+    const download = await downloadPromise;
+    const tempPath = await download.path();
+    buffer = fs.readFileSync(tempPath);
+
+    fs.mkdirSync(path.dirname(SAVE_PATH), { recursive: true });
+    fs.writeFileSync(SAVE_PATH, buffer);
+    console.log("💾 File disimpan ke disk:", SAVE_PATH);
+
+  } catch (err) {
+    console.error("❌ Gagal mendownload file:", err.message);
+  } finally {
+    await browser.close();
+  }
+
+  return buffer;
 }
 
-// Ambil & mapping data dari OneDrive menjadi array dataLogs
-// Struktur kolom disamakan dengan Divisi IP: id, area, deskripsi, prioritas, tanggal, status
-async function fetchOnedriveLogs() {
-  const rows = await downloadAndParse();
+// ── Parse buffer → array of KS objects ───────────────────────────────────────
+function parseBuffer(buffer) {
+  const workbook = XLSX.read(buffer, { type: "buffer" });
+  const sheet    = workbook.Sheets[workbook.SheetNames[0]];
+  const rows     = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+
   if (!rows || rows.length <= 1) return [];
 
   return rows
-    .slice(1) // baris pertama dianggap header
-    .map((row) => ({
-      id: row[0] || "",
-      area: row[1] || "",
-      deskripsi: row[2] || "",
-      prioritas: row[3] || "",
-      tanggal: row[4] || "",
-      status: row[5] || "",
-    }))
+    .slice(1)
+    .map((row) => {
+      const s = (v) => (v != null ? String(v).trim() : "");
+      return {
+        id:     s(row[0]),
+        vendor: s(row[1]),
+        jenis:  s(row[2]),
+        nilai:  parseFloat(String(row[3]).replace(/[^0-9.]/g, "")) || 0,
+        exp:    s(row[4]),
+        status: s(row[5]),
+      };
+    })
     .filter((log) => log.id !== "");
 }
 
-// Hitung analitik untuk Divisi OneDrive (sama pola dengan Divisi IP)
-function hitungAnalitikOnedrive(dataLogs) {
-  const totalData = dataLogs.length;
-  const prioritasTinggi = dataLogs.filter(
-    (log) => log.prioritas === "High",
-  ).length;
-  const menungguAnalisa = dataLogs.filter(
-    (log) => log.status === "Menunggu Analisa",
-  ).length;
+// ── Public: fetch dengan cache + fallback ke file lokal ──────────────────────
+async function fetchOnedriveLogs() {
+  // 1. Sudah ada di memory? Langsung return
+  if (_cache !== null) {
+    console.log("📦 Data dari cache memory, skip semua.");
+    return _cache;
+  }
 
-  return { totalData, prioritasTinggi, menungguAnalisa };
+  // 2. Sedang proses? Tunggu
+  if (_fetchPromise) {
+    console.log("⏳ Proses sedang berjalan, menunggu hasil...");
+    return _fetchPromise;
+  }
+
+  _fetchPromise = (async () => {
+    try {
+      // 3. File lokal sudah ada? Baca dari disk, skip Playwright
+      let buffer = readLocalFile();
+
+      // 4. Belum ada? Baru download via Playwright
+      if (!buffer) {
+        console.log("📡 File belum ada, memulai download via Playwright...");
+        buffer = await downloadFromOnedrive();
+      }
+
+      if (!buffer) {
+        console.error("⚠️ Buffer kosong, parsing dibatalkan.");
+        _cache = [];
+        return _cache;
+      }
+
+      _cache = parseBuffer(buffer);
+      console.log(`✅ Cache terisi: ${_cache.length} baris.`);
+      return _cache;
+
+    } catch (error) {
+      console.error("❌ Error:", error.message);
+      _cache = [];
+      return _cache;
+    } finally {
+      _fetchPromise = null;
+    }
+  })();
+
+  return _fetchPromise;
 }
 
-module.exports = { fetchOnedriveLogs, hitungAnalitikOnedrive };
+// ── Force refresh: hapus file lokal + clear cache → download ulang ────────────
+function invalidateCache() {
+  _cache = null;
+  if (fs.existsSync(SAVE_PATH)) {
+    fs.unlinkSync(SAVE_PATH);
+    console.log("🗑️ File lokal dihapus.");
+  }
+  console.log("🗑️ Cache dibersihkan. Download ulang saat request berikutnya.");
+}
+
+module.exports = { fetchOnedriveLogs, invalidateCache };
