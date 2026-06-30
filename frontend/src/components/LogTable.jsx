@@ -1,6 +1,9 @@
 // src/components/LogTable.jsx
 import { useState } from "react";
-import { List, Search, ChevronLeft, ChevronRight, CheckCircle, XCircle, Clock, AlertTriangle, Wrench, Filter } from "lucide-react";
+import {
+  List, Search, ChevronLeft, ChevronRight,
+  CheckCircle, XCircle, Clock, AlertTriangle, Wrench, Filter,
+} from "lucide-react";
 
 const divisiColor = {
   IP: "bg-violet-100 text-violet-700",
@@ -8,21 +11,20 @@ const divisiColor = {
   P:  "bg-amber-100 text-amber-700",
 };
 
-// ✅ Status mapping sesuai nilai real dari backend
-// Tambah entri baru di sini kalau backend kirim status baru
 const STATUS_CONFIG = {
-  // Divisi IP — dari Google Sheets
-  "Menunggu Analisa":   { label: "Menunggu Analisa",  icon: Clock,          cls: "text-amber-700 bg-amber-50"    },
-  "Menunggu analisa":   { label: "Menunggu Analisa",  icon: Clock,          cls: "text-amber-700 bg-amber-50"    }, // typo backend (kapital beda)
+  // Divisi IP — Google Sheets
+  "Menunggu Analisa":  { label: "Menunggu Analisa",  icon: Clock,          cls: "text-amber-700 bg-amber-50"     },
+  "Menunggu analisa":  { label: "Menunggu Analisa",  icon: Clock,          cls: "text-amber-700 bg-amber-50"     },
+  "Sudah Dianalisa":   { label: "Sudah Dianalisa",   icon: CheckCircle,    cls: "text-emerald-700 bg-emerald-50" }, // ✅
 
-  // Divisi P — dari Firebase
-  "Ready to Execute":   { label: "Siap Eksekusi",     icon: CheckCircle,    cls: "text-emerald-700 bg-emerald-50" },
-  "Waiting Sparepart":  { label: "Tunggu Sparepart",  icon: Wrench,         cls: "text-blue-700 bg-blue-50"      },
-  "Delayed":            { label: "Tertunda",           icon: AlertTriangle,  cls: "text-red-600 bg-red-50"        },
+  // Divisi P — Firebase
+  "Ready to Execute":  { label: "Siap Eksekusi",     icon: CheckCircle,    cls: "text-emerald-700 bg-emerald-50" },
+  "Waiting Sparepart": { label: "Tunggu Sparepart",  icon: Wrench,         cls: "text-blue-700 bg-blue-50"       },
+  "Delayed":           { label: "Tertunda",           icon: AlertTriangle,  cls: "text-red-600 bg-red-50"         },
 
-  // Status generik (mock / fallback)
-  "Sukses":             { label: "Sukses",             icon: CheckCircle,    cls: "text-emerald-700 bg-emerald-50" },
-  "Gagal":              { label: "Gagal",              icon: XCircle,        cls: "text-red-600 bg-red-50"        },
+  // Generik
+  "Sukses":            { label: "Sukses",             icon: CheckCircle,    cls: "text-emerald-700 bg-emerald-50" },
+  "Gagal":             { label: "Gagal",              icon: XCircle,        cls: "text-red-600 bg-red-50"         },
 };
 
 function StatusBadge({ status }) {
@@ -48,7 +50,7 @@ export default function LogTable({ data }) {
 
   const divisiOptions = ["Semua", "IP", "KS", "P"];
 
-  const filtered = data.filter((log) => {
+  const filtered = (data || []).filter((log) => {
     const q = searchTerm.toLowerCase();
     const matchSearch =
       (log.id     || "").toLowerCase().includes(q) ||

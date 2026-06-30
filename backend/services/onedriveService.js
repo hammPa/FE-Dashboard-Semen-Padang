@@ -5,8 +5,12 @@ const XLSX = require("xlsx");
 const fs   = require("fs");
 const path = require("path");
 
-const SHARE_URL =
-  "https://1drv.ms/x/c/5ac5adde876beb8f/IQCaIpa1ejjfT7b-ys9Vc87ZAeP78_B71swh-73Nec5sEZU";
+const CONFIG_PATH = path.join(__dirname, "../config/sources.json");
+
+function getShareUrl() {
+  const raw = fs.readFileSync(CONFIG_PATH, "utf-8");
+  return JSON.parse(raw).onedrive_url || "";
+}
 
 const SAVE_PATH = path.join(__dirname, "../download/Hasil_Download_Log.xlsx");
 
@@ -30,7 +34,7 @@ async function downloadFromOnedrive() {
 
   console.log("🌐 Membuka link sharing OneDrive...");
   try {
-    await page.goto(SHARE_URL, { waitUntil: "networkidle", timeout: 40000 });
+    await page.goto(getShareUrl(), { waitUntil: "networkidle", timeout: 40000 });
   } catch {
     console.log("⚠️ Navigasi awal melewati batas waktu, menganalisis URL saat ini...");
   }
@@ -89,6 +93,7 @@ function parseBuffer(buffer) {
         vendor: s(row[1]),
         jenis:  s(row[2]),
         nilai:  parseFloat(String(row[3]).replace(/[^0-9.]/g, "")) || 0,
+        tanggal: s(row[6]),
         exp:    s(row[4]),
         status: s(row[5]),
       };
@@ -98,6 +103,9 @@ function parseBuffer(buffer) {
 
 // ── Public: fetch dengan cache + fallback ke file lokal ──────────────────────
 async function fetchOnedriveLogs() {
+  if (cleanupIfNoUrl()) {
+    throw new Error("OneDrive URL kosong di konfigurasi.");
+  }
   // 1. Sudah ada di memory? Langsung return
   if (_cache !== null) {
     console.log("📦 Data dari cache memory, skip semua.");
@@ -123,8 +131,8 @@ async function fetchOnedriveLogs() {
 
       if (!buffer) {
         console.error("⚠️ Buffer kosong, parsing dibatalkan.");
-        _cache = [];
-        return _cache;
+        _cache = null;
+        throw new Error("Gagal mengunduh file OneDrive (Buffer kosong).");
       }
 
       _cache = parseBuffer(buffer);
@@ -133,8 +141,8 @@ async function fetchOnedriveLogs() {
 
     } catch (error) {
       console.error("❌ Error:", error.message);
-      _cache = [];
-      return _cache;
+      _cache = null;
+      throw _cache;
     } finally {
       _fetchPromise = null;
     }
@@ -153,4 +161,20 @@ function invalidateCache() {
   console.log("🗑️ Cache dibersihkan. Download ulang saat request berikutnya.");
 }
 
-module.exports = { fetchOnedriveLogs, invalidateCache };
+
+
+// ── Hapus file lokal kalau URL dikosongkan ────────────────────────────────
+function cleanupIfNoUrl() {
+  const url = getShareUrl();
+  if (!url) {
+    if (fs.existsSync(SAVE_PATH)) {
+      fs.unlinkSync(SAVE_PATH);
+      console.log("🗑️ URL kosong → file lokal dihapus.");
+    }
+    _cache = null;
+    return true; // sinyal "tidak ada URL"
+  }
+  return false;
+}
+
+module.exports = { fetchOnedriveLogs, invalidateCache, cleanupIfNoUrl };

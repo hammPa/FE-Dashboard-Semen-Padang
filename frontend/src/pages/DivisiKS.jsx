@@ -196,7 +196,7 @@ export default function DivisiKS() {
           <table className="w-full text-sm text-left min-w-[560px]">
             <thead>
               <tr className="text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100">
-                {["ID", "Vendor", "Jenis Kontrak", "Nilai", "Exp. Date", "Status"].map((h) => (
+                {["ID", "Vendor", "Jenis Kontrak", "Nilai", "Tanggal", "Status"].map((h) => (
                   <th key={h} className="pb-3 px-3 font-bold">{h}</th>
                 ))}
               </tr>
@@ -208,7 +208,7 @@ export default function DivisiKS() {
                   <td className="py-3 px-3 font-semibold text-emerald-700 text-xs">{log.vendor}</td>
                   <td className="py-3 px-3 text-gray-500 text-xs">{log.jenis}</td>
                   <td className="py-3 px-3 text-xs font-bold text-gray-700">Rp {log.nilai?.toLocaleString("id-ID") || "–"}</td>
-                  <td className="py-3 px-3 text-gray-400 text-xs whitespace-nowrap">{log.exp}</td>
+                  <td className="py-3 px-3 text-gray-400 text-xs whitespace-nowrap">{log.tanggal}</td>
                   <td className="py-3 px-3">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${getStatusBadge(log.status)}`}>
                       {log.status}

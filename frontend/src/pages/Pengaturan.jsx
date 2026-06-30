@@ -1,18 +1,14 @@
 // src/pages/Pengaturan.jsx
-//
-// Config sumber data disimpan secara lokal menggunakan LocalStorage
-// Catatan: Karena menggunakan LocalStorage, backend tidak bisa "listen" secara real-time.
-// Konfigurasi ini hanya berlaku di browser/perangkat ini.
 
 import { useEffect, useState, useCallback } from "react";
 import {
-  Settings, Database, Bell, Shield, RefreshCw,
+  Settings, Database, Bell, Shield,
   CheckCircle, Save, Eye, EyeOff, AlertCircle, Loader2, Pencil, X,
+  FileSpreadsheet, Cloud, Flame,
 } from "lucide-react";
+import api from "../utils/api";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
-
-const CONFIG_PATH = "app-config";
 
 const DEFAULT_CONFIG = {
   google_sheets: {
@@ -22,9 +18,7 @@ const DEFAULT_CONFIG = {
     active: true,
   },
   onedrive: {
-    client_id: "",
-    folder_path: "/MaintenanceDashboard/DivisiKS",
-    interval_minutes: 10,
+    share_url: "",
     active: true,
   },
   firebase: {
@@ -33,6 +27,8 @@ const DEFAULT_CONFIG = {
     active: true,
   },
 };
+
+// ─── Toast ───────────────────────────────────────────────────────────────────
 
 function Toast({ type, message, onClose }) {
   useEffect(() => {
@@ -51,10 +47,14 @@ function Toast({ type, message, onClose }) {
       {type === "success" && <CheckCircle size={15} />}
       {type === "error"   && <AlertCircle size={15} />}
       {message}
-      <button onClick={onClose} className="ml-1 opacity-70 hover:opacity-100"><X size={13} /></button>
+      <button onClick={onClose} className="ml-1 opacity-70 hover:opacity-100">
+        <X size={13} />
+      </button>
     </div>
   );
 }
+
+// ─── Field components ────────────────────────────────────────────────────────
 
 function FieldRow({ label, hint, children }) {
   return (
@@ -74,7 +74,7 @@ function TextInput({ value, onChange, placeholder, secret = false, disabled }) {
     <div className="relative">
       <input
         type={secret && !show ? "password" : "text"}
-        value={value}
+        value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
@@ -94,7 +94,7 @@ function NumberInput({ value, onChange, min = 1, max = 60, disabled }) {
   return (
     <input
       type="number" min={min} max={max}
-      value={value}
+      value={value ?? ""}
       onChange={(e) => onChange(Number(e.target.value))}
       disabled={disabled}
       className="w-24 text-xs font-mono bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 disabled:opacity-50 transition-all"
@@ -104,7 +104,10 @@ function NumberInput({ value, onChange, min = 1, max = 60, disabled }) {
 
 function Toggle({ checked, onChange, disabled }) {
   return (
-    <button type="button" onClick={() => !disabled && onChange(!checked)} disabled={disabled}
+    <button
+      type="button"
+      onClick={() => !disabled && onChange(!checked)}
+      disabled={disabled}
       className={`w-10 h-6 rounded-full relative transition-colors focus:outline-none focus:ring-2 focus:ring-blue-200 ${
         checked ? "bg-blue-600" : "bg-gray-200"
       } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
@@ -119,18 +122,29 @@ function Toggle({ checked, onChange, disabled }) {
 function SheetsSection({ cfg, onChange, editing, disabled }) {
   return (
     <div>
-      <FieldRow label="Sheet ID" hint="ID dari URL Google Sheets kamu">
-        <TextInput value={cfg.sheet_id} onChange={(v) => onChange("sheet_id", v)}
-          placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUq…" disabled={!editing || disabled} />
+      <FieldRow label="Sheet ID" hint="ID dari URL Google Sheets (bukan nama file, tapi ID panjang di URL)">
+        <TextInput
+          value={cfg.sheet_id}
+          onChange={(v) => onChange("sheet_id", v)}
+          placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUq…"
+          disabled={!editing || disabled}
+        />
       </FieldRow>
-      <FieldRow label="Nama Tab Divisi IP" hint="Nama sheet/tab yang berisi data inspeksi">
-        <TextInput value={cfg.tab_divisi_ip} onChange={(v) => onChange("tab_divisi_ip", v)}
-          placeholder="DivisiIP" disabled={!editing || disabled} />
+      <FieldRow label="Nama Tab" hint="Nama sheet/tab yang berisi data inspeksi Divisi IP">
+        <TextInput
+          value={cfg.tab_divisi_ip}
+          onChange={(v) => onChange("tab_divisi_ip", v)}
+          placeholder="DivisiIP"
+          disabled={!editing || disabled}
+        />
       </FieldRow>
       <FieldRow label="Interval Sinkronisasi" hint="Seberapa sering data diambil (menit)">
         <div className="flex items-center gap-2">
-          <NumberInput value={cfg.interval_minutes} onChange={(v) => onChange("interval_minutes", v)}
-            disabled={!editing || disabled} />
+          <NumberInput
+            value={cfg.interval_minutes}
+            onChange={(v) => onChange("interval_minutes", v)}
+            disabled={!editing || disabled}
+          />
           <span className="text-xs text-gray-400">menit</span>
         </div>
       </FieldRow>
@@ -144,20 +158,13 @@ function SheetsSection({ cfg, onChange, editing, disabled }) {
 function OneDriveSection({ cfg, onChange, editing, disabled }) {
   return (
     <div>
-      <FieldRow label="Client ID" hint="Azure App Registration Client ID">
-        <TextInput value={cfg.client_id} onChange={(v) => onChange("client_id", v)}
-          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" secret disabled={!editing || disabled} />
-      </FieldRow>
-      <FieldRow label="Folder Path" hint="Path folder di OneDrive">
-        <TextInput value={cfg.folder_path} onChange={(v) => onChange("folder_path", v)}
-          placeholder="/MaintenanceDashboard/DivisiKS" disabled={!editing || disabled} />
-      </FieldRow>
-      <FieldRow label="Interval Sinkronisasi" hint="Seberapa sering data diambil (menit)">
-        <div className="flex items-center gap-2">
-          <NumberInput value={cfg.interval_minutes} onChange={(v) => onChange("interval_minutes", v)}
-            disabled={!editing || disabled} />
-          <span className="text-xs text-gray-400">menit</span>
-        </div>
+      <FieldRow label="Share URL" hint="Link sharing file Excel di OneDrive (format: https://1drv.ms/x/...)">
+        <TextInput
+          value={cfg.share_url}
+          onChange={(v) => onChange("share_url", v)}
+          placeholder="https://1drv.ms/x/c/..."
+          disabled={!editing || disabled}
+        />
       </FieldRow>
       <FieldRow label="Aktif">
         <Toggle checked={cfg.active} onChange={(v) => onChange("active", v)} disabled={!editing || disabled} />
@@ -170,12 +177,20 @@ function FirebaseSection({ cfg, onChange, editing, disabled }) {
   return (
     <div>
       <FieldRow label="Project ID" hint="Nama project Firebase kamu">
-        <TextInput value={cfg.project_id} onChange={(v) => onChange("project_id", v)}
-          placeholder="nama-project-firebase" disabled={!editing || disabled} />
+        <TextInput
+          value={cfg.project_id}
+          onChange={(v) => onChange("project_id", v)}
+          placeholder="nama-project-firebase"
+          disabled={!editing || disabled}
+        />
       </FieldRow>
-      <FieldRow label="Database URL" hint="URL Realtime Database">
-        <TextInput value={cfg.database_url} onChange={(v) => onChange("database_url", v)}
-          placeholder="https://nama-project-default-rtdb.firebaseio.com" disabled={!editing || disabled} />
+      <FieldRow label="Database URL" hint="URL Realtime Database Firebase">
+        <TextInput
+          value={cfg.database_url}
+          onChange={(v) => onChange("database_url", v)}
+          placeholder="https://nama-project-default-rtdb.firebaseio.com"
+          disabled={!editing || disabled}
+        />
       </FieldRow>
       <FieldRow label="Aktif">
         <Toggle checked={cfg.active} onChange={(v) => onChange("active", v)} disabled={!editing || disabled} />
@@ -187,9 +202,9 @@ function FirebaseSection({ cfg, onChange, editing, disabled }) {
 // ─── Source card wrapper ─────────────────────────────────────────────────────
 
 const SOURCE_META = {
-  google_sheets: { label: "Google Sheets", emoji: "📊", color: "emerald", desc: "Divisi IP · Sinkronisasi berkala" },
-  onedrive:      { label: "OneDrive",      emoji: "☁️", color: "blue",    desc: "Divisi KS · Sinkronisasi berkala" },
-  firebase:      { label: "Firebase",      emoji: "🔥", color: "amber",   desc: "Divisi P · Real-time WebSocket" },
+  google_sheets: { label: "Google Sheets", icon: FileSpreadsheet, color: "emerald", desc: "Divisi IP · Sinkronisasi berkala" },
+  onedrive:      { label: "OneDrive",      icon: Cloud, color: "blue",    desc: "Divisi KS · File sharing link" },
+  firebase:      { label: "Firebase (antara read only atau up file key)",      icon: Flame, color: "amber",   desc: "Divisi P · Real-time WebSocket" },
 };
 
 const COLOR_BADGE = {
@@ -207,7 +222,9 @@ function SourceCard({ sourceKey, cfg, onFieldChange, saving }) {
       {/* Card header */}
       <div className="flex items-center justify-between px-4 py-3 bg-gray-50/60">
         <div className="flex items-center gap-3">
-          <span className="text-xl">{meta.emoji}</span>
+          <div className="flex items-center justify-center text-gray-600">
+            {meta.icon && <meta.icon size={24} strokeWidth={1.5} />}
+          </div>
           <div>
             <p className="text-sm font-bold text-gray-800">{meta.label}</p>
             <p className="text-[11px] text-gray-400">{meta.desc}</p>
@@ -251,10 +268,10 @@ function SourceCard({ sourceKey, cfg, onFieldChange, saving }) {
 // ─── Notification prefs ──────────────────────────────────────────────────────
 
 const NOTIF_ITEMS = [
-  { key: "sync_fail",   label: "Gagal sinkronisasi",       desc: "Beritahu saat sumber data gagal terhubung" },
-  { key: "new_data",    label: "Laporan baru masuk",        desc: "Notifikasi real-time setiap ada data baru" },
-  { key: "contract",    label: "Kontrak hampir expired",    desc: "Peringatan 7 hari sebelum kontrak KS habis" },
-  { key: "daily_recap", label: "Ringkasan harian",          desc: "Kirim ringkasan ke email setiap pukul 08:00" },
+  { key: "sync_fail",   label: "Gagal sinkronisasi",    desc: "Beritahu saat sumber data gagal terhubung" },
+  { key: "new_data",    label: "Laporan baru masuk",     desc: "Notifikasi real-time setiap ada data baru" },
+  { key: "contract",    label: "Kontrak hampir expired", desc: "Peringatan 7 hari sebelum kontrak KS habis" },
+  { key: "daily_recap", label: "Ringkasan harian",       desc: "Kirim ringkasan ke email setiap pukul 08:00" },
 ];
 
 // ─── Main page ───────────────────────────────────────────────────────────────
@@ -269,19 +286,28 @@ export default function Pengaturan() {
     sync_fail: true, new_data: true, contract: false, daily_recap: false,
   });
 
-  // Load config dari LocalStorage saat mount
+  // Load config dari backend saat mount
   useEffect(() => {
-    try {
-      const savedConfig = localStorage.getItem(CONFIG_PATH);
-      if (savedConfig) {
-        setConfig((prev) => ({ ...DEFAULT_CONFIG, ...JSON.parse(savedConfig) }));
-      }
-    } catch (err) {
-      console.error("Local Storage read error:", err);
-      setToast({ type: "error", message: "Gagal memuat config dari Local Storage." });
-    } finally {
-      setLoadingCfg(false);
-    }
+    api.get("/config")
+      .then(({ data }) => {
+        setConfig({
+          google_sheets: {
+            ...DEFAULT_CONFIG.google_sheets,
+            sheet_id: data.spreadsheet_id ?? "",
+          },
+          onedrive: {
+            ...DEFAULT_CONFIG.onedrive,
+            share_url: data.onedrive_url ?? "",
+          },
+          firebase: {
+            ...DEFAULT_CONFIG.firebase,
+            project_id: data.project_id ?? "",
+            database_url: data.database_url ?? "",
+          },
+        });
+      })
+      .catch(() => setToast({ type: "error", message: "Gagal memuat config dari server." }))
+      .finally(() => setLoadingCfg(false));
   }, []);
 
   // Update satu field dalam satu source
@@ -292,22 +318,20 @@ export default function Pengaturan() {
     }));
   }, []);
 
-  // Simpan semua config ke LocalStorage
-  const handleSave = () => {
+  // Simpan config ke backend → ditulis ke sources.json
+  const handleSave = async () => {
     setSaving(true);
-    
-    // Sedikit delay simulasi agar ada feedback visual tombol loading
-    setTimeout(() => {
-      try {
-        localStorage.setItem(CONFIG_PATH, JSON.stringify(config));
-        setToast({ type: "success", message: "Konfigurasi berhasil disimpan secara lokal." });
-      } catch (err) {
-        console.error("Save error:", err);
-        setToast({ type: "error", message: "Gagal menyimpan ke Local Storage." });
-      } finally {
-        setSaving(false);
-      }
-    }, 400); 
+    try {
+      await api.post("/config", {
+        spreadsheet_id: config.google_sheets.sheet_id,
+        onedrive_url:   config.onedrive.share_url,
+      });
+      setToast({ type: "success", message: "Konfigurasi berhasil disimpan." });
+    } catch {
+      setToast({ type: "error", message: "Gagal menyimpan config ke server." });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -369,7 +393,7 @@ export default function Pengaturan() {
         )}
 
         <p className="mt-4 text-[10px] text-gray-400 leading-relaxed">
-          Konfigurasi disimpan secara lokal di browser kamu (Local Storage) dengan nama key <code className="font-mono bg-gray-100 px-1 rounded">{CONFIG_PATH}</code>.
+          Konfigurasi disimpan di server (<code className="font-mono bg-gray-100 px-1 rounded">config/sources.json</code>) dan dibaca langsung oleh backend.
         </p>
       </div>
 
@@ -381,8 +405,10 @@ export default function Pengaturan() {
         </div>
         <div className="space-y-1">
           {NOTIF_ITEMS.map((item) => (
-            <label key={item.key}
-              className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
+            <label
+              key={item.key}
+              className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors"
+            >
               <div>
                 <p className="text-sm font-semibold text-gray-700">{item.label}</p>
                 <p className="text-xs text-gray-400">{item.desc}</p>
@@ -415,10 +441,10 @@ export default function Pengaturan() {
           <div className="flex items-center justify-between p-4 border border-gray-100 rounded-xl">
             <div>
               <p className="text-sm font-semibold text-gray-700">Penyimpanan Config</p>
-              <p className="text-xs text-gray-400">Browser Local Storage · {CONFIG_PATH}</p>
+              <p className="text-xs text-gray-400">Server · config/sources.json</p>
             </div>
             <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200">
-              💻 Lokal
+              🖥️ Server
             </span>
           </div>
         </div>

@@ -1,4 +1,3 @@
-// src/pages/Overview.jsx
 import { useState, useEffect } from "react";
 import SummaryCards from "../components/SummaryCards";
 import TrendChart   from "../components/TrendChart";
@@ -10,36 +9,24 @@ import {
   trendData,
   sourceData,
   recentLogs,
-  uptimeData,
-  kpiData,
+  alertsData,
 } from "../data/mockdata";
 import api from "../utils/api";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 
-// ✅ Satu titik definisi mock — semua field lengkap
 const MOCK_DATA = {
-  summary: {
-    ...summaryData,
-    // kpiData dimasukkan ke summary supaya SummaryCards bisa deriveKpi dengan benar
-    syncSuccess: kpiData.syncSuccess,
-    avgLatency:  kpiData.avgLatency,
-  },
+  summary:   summaryData,
   trendData,
   sourceData,
   recentLogs,
-  // uptimeBySource: objek flat { "Google Sheets": 99.9, ... }
-  uptimeBySource: {
-    "Google Sheets": uptimeData["Google Sheets"],
-    "Firebase":      uptimeData["Firebase"],
-    "OneDrive":      uptimeData["OneDrive"],
-  },
+  alerts:    alertsData,
 };
 
 export default function Overview() {
-  const [isLoading, setIsLoading]   = useState(true);
+  const [isLoading,  setIsLoading]  = useState(true);
   const [serverData, setServerData] = useState(null);
-  const [dataSource, setDataSource] = useState(null); // "mock" | "api" | "fallback"
+  const [dataSource, setDataSource] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -52,17 +39,12 @@ export default function Overview() {
 
       try {
         const response = await api.get("/dashboard");
-        // Backend belum kirim uptimeBySource? Fallback ke {} — SourceChart handle sendiri
-        const apiData = {
-          ...response.data,
-          uptimeBySource: response.data.uptimeBySource || {},
-        };
-        setServerData(apiData);
+        console.log("[Overview] API response:", response.data); // ✅ debug
+        setServerData(response.data);
         setDataSource("api");
       } catch (err) {
-        console.warn("[Overview] API gagal, fallback ke mock. Error:", err?.message || err);
-        setServerData(MOCK_DATA);
-        setDataSource("fallback");
+        console.warn("[Overview] API gagal diambil:", err?.message || err);
+        setDataSource("error");
       } finally {
         setIsLoading(false);
       }
@@ -87,9 +69,26 @@ export default function Overview() {
     );
   }
 
+  // if (dataSource === "error" || !serverData) {
+  //   return (
+  //     <div className="flex flex-col items-center justify-center h-96 text-gray-500 bg-white rounded-2xl border border-gray-100 shadow-sm mt-5">
+  //       <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-3">
+  //         <span className="text-red-500 text-xl font-bold">!</span>
+  //       </div>
+  //       <h3 className="text-sm font-bold text-gray-800">Gagal Memuat Data Dashboard</h3>
+  //       <p className="text-xs text-gray-400 mt-1">Terjadi kesalahan pada server atau batas waktu habis.</p>
+  //       <button 
+  //         onClick={() => window.location.reload()} 
+  //         className="mt-4 px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-semibold rounded-lg border border-gray-200 transition-colors"
+  //       >
+  //         Muat Ulang Halaman
+  //       </button>
+  //     </div>
+  //   );
+  // }
+
   return (
     <div className="space-y-5">
-      {/* Banner debug — hanya muncul di mode development */}
       {import.meta.env.DEV && (
         <div className={`text-[11px] font-bold px-3 py-1.5 rounded-lg border w-fit ${
           dataSource === "api"
@@ -104,18 +103,15 @@ export default function Overview() {
         </div>
       )}
 
-      {/* ✅ Semua komponen dapat data dari serverData — zero hardcode di dalamnya */}
       <SummaryCards
         data={serverData.summary}
         recentLogs={serverData.recentLogs}
+        alerts={serverData.alerts ?? []}
       />
       <TrendChart data={serverData.trendData} />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5">
-        <SourceChart
-          data={serverData.sourceData}
-          uptimeBySource={serverData.uptimeBySource}
-        />
-        <LogTable data={serverData.recentLogs} />
+        <SourceChart data={serverData.sourceData} />
+        <LogTable    data={serverData.recentLogs} />
       </div>
     </div>
   );

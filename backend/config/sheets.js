@@ -1,7 +1,14 @@
 // backend/config/sheets.js
 const { google } = require("googleapis");
+const fs = require("fs");
+const path = require("path");
 
-const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+const CONFIG_PATH = path.join(__dirname, "./sources.json");
+
+function getSpreadsheetId() {
+  const raw = fs.readFileSync(CONFIG_PATH, "utf-8");
+  return JSON.parse(raw).spreadsheet_id || "";
+}
 
 const auth = new google.auth.GoogleAuth({
   keyFile: "./firebase-key.json",
@@ -10,4 +17,4 @@ const auth = new google.auth.GoogleAuth({
 
 const sheets = google.sheets({ version: "v4", auth });
 
-module.exports = { sheets, SPREADSHEET_ID };
+module.exports = { sheets, getSpreadsheetId };

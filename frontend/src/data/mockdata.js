@@ -42,20 +42,3 @@ export const alertsData = [
   { id: "A-001", title: "Gagal Sinkronisasi OneDrive",  level: "error",   time: "10 Menit yang lalu", divisi: "IP" },
   { id: "A-002", title: "Koneksi Firebase Melambat",    level: "warning", time: "1 Jam yang lalu",    divisi: "KS" },
 ];
-
-export const kpiData = {
-  totalRecord:  "2,450",
-  syncSuccess:  98.4,
-  avgLatency:   "1.2s",
-};
-
-// ✅ DIPERBAIKI: tambah uptime per sumber data (sebelumnya undefined semua)
-export const uptimeData = {
-  percentage:     "99.98%",
-  status:         "Operational",
-  incidents:      0,
-  // Uptime per sumber — dipakai SourceChart
-  "Google Sheets": 99.9,
-  "Firebase":      98.7,
-  "OneDrive":      97.5,
-};

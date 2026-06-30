@@ -9,6 +9,7 @@ const divisiPRouter = require("./routes/divisiP");
 const divisiKSRouter = require("./routes/divisiKs");
 const dashboardRouter = require("./routes/dashboard");
 const geminiRouter = require("./routes/gemini");
+const configRouter = require("./routes/link");
 // const { watchFirebaseChanges } = require("./realtime/firebaseWatcher");
 // const { startSheetsPolling } = require("./realtime/sheetsPoller");
 // const { startOnedrivePolling } = require("./realtime/onedrivePoller");
@@ -35,6 +36,7 @@ app.get("/", (_, res) => {
   res.send("Server API Dashboard Industri Berjalan Normal!");
 });
 
+app.use("/api/config", configRouter);
 app.use("/api/divisi-ip", divisiIpRouter);
 app.use("/api/divisi-p", divisiPRouter);
 app.use("/api/divisi-ks", divisiKSRouter);

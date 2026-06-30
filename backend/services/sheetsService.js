@@ -1,9 +1,9 @@
-const { sheets, SPREADSHEET_ID } = require("../config/sheets");
+const { sheets, getSpreadsheetId } = require("../config/sheets");
 
 // Ambil & mapping data dari Google Sheets menjadi array dataLogs
 async function fetchSheetLogs() {
   const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
+    spreadsheetId: getSpreadsheetId(),
     range: "A:F",
   });
 

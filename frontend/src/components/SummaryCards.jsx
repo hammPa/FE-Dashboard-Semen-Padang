@@ -1,64 +1,70 @@
 // src/components/SummaryCards.jsx
-import { FileText, Clock, TrendingUp, Database, Zap } from "lucide-react";
+import { FileText, Clock, Database, Wifi, CheckCircle } from "lucide-react";
 
 const divisiCards = [
-  { key: "ip", label: "Divisi IP",  sub: "Inspeksi Pemeliharaan", iconBg: "bg-indigo-50 text-indigo-600", bar: "from-indigo-500 to-violet-600", shadow: "hover:shadow-indigo-100" },
-  { key: "ks", label: "Divisi KS",  sub: "Kontrak Servis",        iconBg: "bg-emerald-50 text-emerald-600", bar: "from-emerald-400 to-teal-600", shadow: "hover:shadow-emerald-100" },
-  { key: "p",  label: "Divisi P",   sub: "Planner",               iconBg: "bg-amber-50 text-amber-600",    bar: "from-amber-400 to-orange-500", shadow: "hover:shadow-amber-100" },
+  { key: "ip", label: "Divisi IP",  sub: "Inspeksi Pemeliharaan", iconBg: "bg-indigo-50 text-indigo-600",   bar: "from-indigo-500 to-violet-600", shadow: "hover:shadow-indigo-100" },
+  { key: "ks", label: "Divisi KS",  sub: "Kontrak Servis",        iconBg: "bg-emerald-50 text-emerald-600", bar: "from-emerald-400 to-teal-600",   shadow: "hover:shadow-emerald-100" },
+  { key: "p",  label: "Divisi P",   sub: "Planner",               iconBg: "bg-amber-50 text-amber-600",     bar: "from-amber-400 to-orange-500",   shadow: "hover:shadow-amber-100" },
 ];
 
-// ✅ Hitung KPI dari data yang sudah ada — tidak perlu import mockdata
-function deriveKpi(summary, recentLogs = []) {
-  const ip    = summary?.ip    || 0;
-  const ks    = summary?.ks    || 0;
-  const p     = summary?.p     || 0;
-  const total = ip + ks + p;
+const DIVISI_LABEL = { ip: "IP", ks: "KS", p: "P" };
 
-  // totalRecord: jumlah semua log, format ribuan
-  const totalRecord = total.toLocaleString("id-ID");
-
-  // syncSuccess: ambil dari summary kalau ada, hitung dari recentLogs kalau tidak
-  let syncSuccess;
-  if (summary?.syncSuccess != null) {
-    syncSuccess = summary.syncSuccess;
-  } else if (recentLogs.length > 0) {
-    const sukses = recentLogs.filter((l) => l.status === "Sukses").length;
-    syncSuccess = parseFloat(((sukses / recentLogs.length) * 100).toFixed(1));
-  } else {
-    syncSuccess = 0;
-  }
-
-  // avgLatency: pakai dari summary kalau backend kirim, otherwise "-"
-  const avgLatency = summary?.avgLatency || "-";
-
-  return { totalRecord, syncSuccess, avgLatency };
+/**
+ * Hitung sumber aktif dari alertsData:
+ * sumber dianggap DOWN kalau ada alert level "error" untuk divisi itu.
+ * Total sumber = 3 (IP, KS, P).
+ */
+function deriveSumberAktif(alerts = []) {
+  const errorDivisi = new Set(
+    alerts.filter((a) => a.level === "error").map((a) => a.divisi)
+  );
+  const total = 3;
+  const aktif = ["IP", "KS", "P"].filter((d) => !errorDivisi.has(d)).length;
+  return { aktif, total };
 }
 
-export default function SummaryCards({ data, recentLogs = [] }) {
-  // ✅ data = serverData.summary, semua dari props — tidak ada import mockdata
-  const total = (data?.ip || 0) + (data?.ks || 0) + (data?.p || 0);
-  const kpi   = deriveKpi(data, recentLogs);
+export default function SummaryCards({ data, recentLogs = [], alerts = [] }) {
+  const total       = (data?.ip || 0) + (data?.ks || 0) + (data?.p || 0);
+  const totalRecord = total.toLocaleString("id-ID");
+  const sumberAktif = deriveSumberAktif(alerts);
+
+  // Ambil syncSuccess dari data (dikirim backend), fallback 100 kalau tidak ada
+  const syncSuccess = data?.syncSuccess ?? 100;
+
+  // Warna Sumber Aktif: merah kalau ada yang mati, hijau kalau semua OK
+  const sumberColor =
+    sumberAktif.aktif < sumberAktif.total
+      ? { bg: "text-red-600 bg-red-50",        text: "text-red-700"     }
+      : { bg: "text-emerald-600 bg-emerald-50", text: "text-emerald-700" };
+
+  // Warna Sync Success: hijau ≥95%, kuning ≥80%, merah <80%
+  const syncColor =
+    syncSuccess >= 95 ? { bg: "text-emerald-600 bg-emerald-50", text: "text-emerald-700" } :
+    syncSuccess >= 80 ? { bg: "text-amber-600 bg-amber-50",     text: "text-amber-700"   } :
+                        { bg: "text-red-600 bg-red-50",         text: "text-red-700"     };
 
   const kpiCards = [
     {
       icon:      Database,
       color:     "text-blue-600 bg-blue-50",
       label:     "Total Record",
-      val:       kpi.totalRecord,
+      val:       totalRecord,
+      textClass: "text-slate-800",
     },
     {
-      icon:      TrendingUp,
-      color:     "text-emerald-600 bg-emerald-50",
-      label:     "Sync Berhasil",
-      val:       `${kpi.syncSuccess}%`,
-      textClass: "text-emerald-700",
+      icon:      Wifi,
+      color:     sumberColor.bg,
+      label:     "Sumber Aktif",
+      val:       `${sumberAktif.aktif}/${sumberAktif.total}`,
+      textClass: sumberColor.text,
     },
     {
-      icon:      Zap,
-      color:     "text-amber-600 bg-amber-50",
-      label:     "Avg Latency",
-      val:       kpi.avgLatency,
-      textClass: "text-amber-700",
+      // ✅ Ganti "Paling Lama Tidak Update" → "Sync Success" dari backend
+      icon:      CheckCircle,
+      color:     syncColor.bg,
+      label:     "Sync Success",
+      val:       `${syncSuccess}%`,
+      textClass: syncColor.text,
     },
   ];
 
@@ -76,7 +82,7 @@ export default function SummaryCards({ data, recentLogs = [] }) {
             </div>
             <div>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.label}</p>
-              <p className={`text-xl font-black text-slate-800 tabular-nums tracking-tight ${item.textClass || ""}`}>
+              <p className={`text-xl font-black tabular-nums tracking-tight ${item.textClass}`}>
                 {item.val}
               </p>
             </div>
@@ -116,7 +122,6 @@ export default function SummaryCards({ data, recentLogs = [] }) {
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</p>
               <h3 className="text-3xl font-black text-slate-800 tabular-nums tracking-tight my-1">{val}</h3>
               <p className="text-xs text-slate-400 font-medium mb-4">{sub}</p>
-
               <div className="h-2 w-full bg-slate-50 rounded-full overflow-hidden border border-slate-100">
                 <div
                   className={`h-full rounded-full bg-gradient-to-r ${bar} transition-all duration-1000 ease-out`}

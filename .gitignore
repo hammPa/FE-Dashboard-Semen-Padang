@@ -31,3 +31,4 @@ backend/firebase-key.json
 backend/node_modules/
 backend/.env
 backend/download/
+backend/config/sources.json

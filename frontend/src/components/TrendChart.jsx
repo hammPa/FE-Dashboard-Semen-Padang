@@ -20,7 +20,7 @@ const CustomTooltip = ({ active, payload, label }) => {
             <span className="w-2.5 h-2.5 rounded-full ring-2 ring-white shadow-sm" style={{ backgroundColor: p.color }} />
             <span className="text-xs font-medium text-slate-500">{p.dataKey}</span>
           </div>
-          <span className="text-xs font-black text-slate-800 tabular-nums">{p.value}</span>
+          <span className="text-xs font-black text-slate-800 tabular-nums">{p.value} Laporan</span>
         </div>
       ))}
     </div>
@@ -31,6 +31,20 @@ export default function TrendChart({ data }) {
   const [activeLines, setActiveLines] = useState({ IP: true, KS: true, P: true });
   const toggleLine = (key) => setActiveLines((prev) => ({ ...prev, [key]: !prev[key] }));
 
+  const formatXAxis = (tickItem) => {
+    // Jika data `date` kamu berupa objek Date atau string ISO (ex: "2026-06-01")
+    const date = new Date(tickItem);
+    if (!isNaN(date)) {
+      // Menghasilkan nama bulan singkatan (ex: "Jun", "Jul")
+      return date.toLocaleDateString("id-ID", { month: "short" });
+    }
+    
+    // Jika data `date` berupa string seperti "01 Jun 2026"
+    // return tickItem.split(" ")[1]; 
+
+    return tickItem; // Fallback jika gagal diformat
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 lg:p-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -39,7 +53,7 @@ export default function TrendChart({ data }) {
             <TrendingUp size={16} className="text-indigo-600" strokeWidth={2.2} />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-slate-800">Tren Laporan Mingguan</h3>
+            <h3 className="text-sm font-bold text-slate-800">Tren Laporan</h3>
             <p className="text-xs text-slate-400 font-medium">01 Jun – 07 Jun 2026</p>
           </div>
         </div>
@@ -78,7 +92,7 @@ export default function TrendChart({ data }) {
               ))}
             </defs>
             <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#F8FAFC" />
-            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: "#94A3B8", fontSize: 11, fontWeight: 500 }} dy={10} />
+            <XAxis dataKey="date" tickFormatter={formatXAxis} axisLine={false} tickLine={false} tick={{ fill: "#94A3B8", fontSize: 11, fontWeight: 500 }} dy={10} />
             <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94A3B8", fontSize: 11, fontWeight: 500 }} dx={-5} />
             <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#F1F5F9', strokeWidth: 1.5 }} />
             {LINES.map(({ key, color }) =>

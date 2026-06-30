@@ -43,12 +43,32 @@ router.post("/chat", async (req, res) => {
 
   let kontekData = "";
   try {
-    // Ambil semua data paralel
-    const [logsIP, logsP, logsKS] = await Promise.all([
-      fetchSheetLogs(),
-      fetchPlannerLogs(),
-      fetchOnedriveLogs(),
+    // 1. Fungsi helper agar kegagalan 1 sumber tidak menyebabkan crash pada semua sumber
+    const tarikAman = async (fungsiFetch, nama) => {
+      try {
+        const data = await fungsiFetch();
+        return { nama, status: "Sukses", data };
+      } catch (err) {
+        console.error(`⚠️ Chat API: Gagal narik ${nama}:`, err.message);
+        return { nama, status: "Gagal", data: [] }; 
+      }
+    };
+
+    // 2. Ambil data secara paralel namun aman
+    const hasilFetch = await Promise.all([
+      tarikAman(fetchSheetLogs, "Google Sheets (IP)"),
+      tarikAman(fetchPlannerLogs, "Firebase (P)"),
+      tarikAman(fetchOnedriveLogs, "OneDrive (KS)"),
     ]);
+
+    // 3. Kalkulasi Sumber Aktif
+    const sumberSukses = hasilFetch.filter(h => h.status === "Sukses").length;
+    const totalSumber  = hasilFetch.length;
+
+    // Ekstrak data array dari masing-masing hasil
+    const logsIP = hasilFetch[0].data;
+    const logsP  = hasilFetch[1].data;
+    const logsKS = hasilFetch[2].data;
 
     // ── Analitik IP ──
     const analitikIP  = hitungAnalitikIP(logsIP);
@@ -62,42 +82,49 @@ router.post("/chat", async (req, res) => {
 
     // ── Analitik KS ──
     const totalKS     = logsKS.length;
+    // Ambil data yang aktif (opsional, jika ingin ditampilkan jumlahnya saja)
     const aktifKS     = logsKS.filter(l => (l.status || "").toLowerCase().includes("aktif"));
+    // Ambil data yang expired untuk dicantumkan di prompt
     const expiredKS   = logsKS.filter(l => (l.status || "").toLowerCase().includes("expired"));
 
+    // 4. Bangun teks konteks dengan pencegah undefined
     kontekData = `
+STATUS KONEKSI SISTEM:
+- Sumber Data Aktif: ${sumberSukses} dari ${totalSumber}
+- Detail Koneksi: ${hasilFetch.map(h => `${h.nama}: ${h.status}`).join(", ")}
+
 DATA REAL-TIME DIVISI IP (Inspeksi Pemeliharaan) — Google Sheets:
-- Total temuan: ${analitikIP.totalInspeksi}
-- Prioritas High: ${analitikIP.prioritasTinggi}
-- Menunggu Analisa: ${analitikIP.menungguAnalisa}
-- Sudah Dianalisa: ${analitikIP.totalInspeksi - analitikIP.menungguAnalisa}
+- Total temuan: ${analitikIP.totalInspeksi || 0}
+- Prioritas High: ${analitikIP.prioritasTinggi || 0}
+- Menunggu Analisa: ${analitikIP.menungguAnalisa || 0}
+- Sudah Dianalisa: ${(analitikIP.totalInspeksi || 0) - (analitikIP.menungguAnalisa || 0)}
 Temuan prioritas High:
-${highIP.map(l => `  • [${l.id}] ${l.area} — ${l.deskripsi} (${l.tanggal})`).join("\n")}
+${highIP.length > 0 ? highIP.map(l => `  • [${l.id}] ${l.area} — ${l.deskripsi} (${l.tanggal})`).join("\n") : "  Tidak ada"}
 Temuan menunggu analisa:
-${menungguIP.map(l => `  • [${l.id}] ${l.area} — ${l.prioritas}`).join("\n")}
+${menungguIP.length > 0 ? menungguIP.map(l => `  • [${l.id}] ${l.area} — ${l.prioritas}`).join("\n") : "  Tidak ada"}
 
 DATA REAL-TIME DIVISI P (Planner) — Firebase:
-- Total Work Order: ${analitikP.totalWorkOrder}
-- Siap Eksekusi: ${analitikP.siapEksekusi}
-- Tertunda: ${analitikP.tertunda}
-- Waiting Sparepart: ${analitikP.menungguSparepart}
-- Persentase Kesiapan: ${analitikP.persentaseKesiapan}
+- Total Work Order: ${analitikP.totalWorkOrder || 0}
+- Siap Eksekusi: ${analitikP.siapEksekusi || 0}
+- Tertunda: ${analitikP.tertunda || 0}
+- Waiting Sparepart: ${analitikP.menungguSparepart || 0}
+- Persentase Kesiapan: ${analitikP.persentaseKesiapan || 0}%
 WO tertunda:
-${tertundaP.map(l => `  • [${l.id || "-"}] ${l.deskripsi || l.nama || "-"}`).join("\n") || "  Tidak ada"}
+${tertundaP.length > 0 ? tertundaP.map(l => `  • [${l.id || "-"}] ${l.deskripsi || l.nama || "-"}`).join("\n") : "  Tidak ada"}
 WO waiting sparepart:
-${sparepartP.map(l => `  • [${l.id || "-"}] ${l.deskripsi || l.nama || "-"}`).join("\n") || "  Tidak ada"}
+${sparepartP.length > 0 ? sparepartP.map(l => `  • [${l.id || "-"}] ${l.deskripsi || l.nama || "-"}`).join("\n") : "  Tidak ada"}
 
 DATA REAL-TIME DIVISI KS (Kontrak Servis) — OneDrive:
-- Total kontrak: ${totalKS}
-- Aktif: ${aktifKS.length}
-- Expired: ${expiredKS.length}
-Daftar kontrak:
-${logsKS.map(l => `  • [${l.id}] ${l.vendor} — ${l.jenis} | Nilai: ${l.nilai.toLocaleString("id-ID")} | Exp: ${l.exp} | Status: ${l.status}`).join("\n") || "  Tidak ada data"}
+- Total kontrak: ${totalKS || 0}
+- Aktif: ${aktifKS.length || 0}
+- Expired: ${expiredKS.length || 0}
+Daftar kontrak expired:
+${expiredKS.length > 0 ? expiredKS.map(l => `  • [${l.id}] ${l.vendor} | Nilai: ${l.nilai ? l.nilai.toLocaleString("id-ID") : 0} | Exp: ${l.exp}`).join("\n") : "  Tidak ada kontrak expired"}
     `.trim();
 
   } catch (e) {
-    console.error("Gagal ambil data:", e.message);
-    kontekData = "Data tidak dapat dimuat saat ini.";
+    console.error("Gagal menyusun konteks data:", e.message);
+    kontekData = "Data tidak dapat dimuat saat ini karena gangguan internal server.";
   }
 
   const systemPrompt = `Kamu adalah asisten AI analis untuk dashboard MAINT — sistem pemantauan pemeliharaan industri pabrik semen.
@@ -116,7 +143,6 @@ Penjelasan lengkap fitur dashboard MAINT:
    - Menampilkan ringkasan performa keseluruhan 3 divisi
    - Total record: gabungan data dari IP, KS, dan P
    - Sync sukses: persentase keberhasilan sinkronisasi data dari semua sumber
-   - Avg latency: rata-rata waktu respons sistem dalam milidetik
    - Log aktivitas: riwayat sinkronisasi data terbaru beserta statusnya
 
 2. DIVISI IP (Inspeksi Pemeliharaan)
